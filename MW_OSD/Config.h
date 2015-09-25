@@ -33,9 +33,9 @@
 // Choose ONLY ONE option from the following long list :-
 
 // latest release...
-#define MULTIWII                  // Uncomment this if you are using latest MULTIWII version from repository (2.4 at time of this MWOSD release)
+//#define MULTIWII                  // Uncomment this if you are using latest MULTIWII version from repository (2.4 at time of this MWOSD release)
 //#define BASEFLIGHT                // Uncomment this if you are using latest BASEFLIGHT version from repository (Stable 2015.06.27 at time of this MWOSD release)
-//#define CLEANFLIGHT               // Uncomment this if you are using latest CLEANFLIGHT version from repository (1.9.0 at time or this MWOSD release)
+#define CLEANFLIGHT               // Uncomment this if you are using latest CLEANFLIGHT version from repository (1.9.0 at time or this MWOSD release)
 //#define HARIKIRI                  // Uncomment this if you are using HARIKIRI (for BOXNAMES compatibility)
 //#define NAZA                      // Uncomment this if you are using NAZA flight controller
 //#define GPSOSD_UBLOX              // Uncomment this if you are using a UBLOX GPS module for a GPS based OSD
@@ -58,7 +58,7 @@
 
 
 /********************       HARDWARE CURRENT sensor settings      *********************/
-#define AMPERAGEMAX     500         // Size of current sensor / maximum current draw (* 10) e.g. 50A sensor = 500, 100A sensor = 1000
+#define AMPERAGEMAX     900         // Size of current sensor / maximum current draw (* 10) e.g. 50A sensor = 500, 100A sensor = 1000
 #define AMPERAGEOFFSET  0           // Optional extra for high offset sensors not supported in GUI (typically bidirectional sensors use a value of 256-512) 
 
 
@@ -217,8 +217,8 @@
 //#define FC_VOLTAGE_CONFIG           // Additionally uncomment this if you want to use the vbat voltage config with BASEFLIGHT and CLEANFLIGHT on the flight controller (include: min cell voltage, max cell voltage and warning cell voltage)
 //#define VIDVOLTSWARNING 106         // Enable flashing of video volts (when used) if less than value XXX. e.g If XXX=104 then warning voltage = 10.4v
 //The following variables are available for adjustment unless using FC_VOLTAGE_CONFIG 
-#define CELL_VOLTS_WARN 35            // Specify the cell voltage level at which low voltage warning takes place eg. 35 = 3.5 volts per cell
-#define CELL_VOLTS_MIN 33             // Specify the cell voltage at which it is considered empty
+#define CELL_VOLTS_WARN 37            // Specify the cell voltage level at which low voltage warning takes place eg. 35 = 3.5 volts per cell
+#define CELL_VOLTS_MIN 35             // Specify the cell voltage at which it is considered empty
 #define CELL_VOLTS_MAX 42             // Specify the max normal LIPO cell voltage
 
 
