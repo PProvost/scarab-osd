@@ -20,6 +20,7 @@
 #define IMPERIAL 1
 
 #define lo_speed_cycle  100
+#define sync_speed_cycle  33
 
 #define CALIBRATION_DELAY 10       // Calibration timeouts   
 #define EEPROM_WRITE_DELAY 5       // Calibration timeouts
@@ -128,6 +129,7 @@ uint16_t cell_data[6]={0,0,0,0,0,0};
 uint16_t cycleTime;
 uint16_t I2CError;
 uint8_t oldROW=0;
+uint8_t cells=0;
 #if defined SETCONFIG
   uint8_t bfconfig[SETCONFIG];
 #endif
@@ -166,12 +168,25 @@ struct {
   uint32_t gpsland;
 }mode;
 
+// Settings Locations
+enum Setting16_ {
+  S16_AMPMAXn,
+  S16_AMPZERO,
+  S16_AMPDIVIDERRATIO,
+  S16_RSSIMIN,
+  S16_RSSIMAX,
+  S16_SPARE1,
+  S16_SPARE2,
+  
+  // EEPROM16_SETTINGS must be last!
+  EEPROM16_SETTINGS
+};
 
 // Settings Locations
 enum Setting_ {
   S_CHECK_,		// used for check
-  S_RSSIMIN,
-  S_RSSIMAX,
+  S_UNUSED_5,
+  S_VIDVOLTAGEMIN,
   S_RSSI_ALARM,
   S_DISPLAYRSSI,
   S_MWRSSI,
@@ -185,10 +200,10 @@ enum Setting_ {
   S_MWAMPERAGE,
   S_AMPER_HOUR,
   S_AMPERAGE_VIRTUAL,
-  S_AMPDIVIDERRATIO,
+  S_UNUSED_3,
   S_VIDVOLTAGE,
   S_VIDDIVIDERRATIO,
-  S_VIDVOLTAGE_VBAT,
+  S_UNUSED_4,
   S_AMPER_HOUR_ALARM,
   S_AMPERAGE_ALARM,
   S_DISPLAYGPS,
@@ -223,9 +238,9 @@ enum Setting_ {
   S_TIMER,
   S_MODESENSOR,
   S_SIDEBARTOPS,
-  S_AMPMIN,
-  S_AMPMAXL,
-  S_AMPMAXH,
+  S_UNUSED_6,
+  S_UNUSED_1, //S_AMPMAXL,
+  S_UNUSED_2, //S_AMPMAXH,
   S_RCWSWITCH,
   S_RCWSWITCH_CH,
   S_HUDSW0,
@@ -250,9 +265,8 @@ enum Setting_ {
 };
 
 
-uint16_t S16_AMPMAX = 999; // 16 bit eeprom setting of AMPMAX  
-
-uint8_t Settings[EEPROM_SETTINGS];
+uint8_t  Settings[EEPROM_SETTINGS];
+uint16_t Settings16[EEPROM16_SETTINGS];
 
 //const uint8_t screenlayoutoffset=((EEPROM_SETTINGS-EEPROM16_SETTINGS_START)>>2);
 
@@ -260,8 +274,8 @@ uint8_t Settings[EEPROM_SETTINGS];
 // For Settings Defaults
 uint8_t EEPROM_DEFAULT[EEPROM_SETTINGS] = {
 MWOSDVER,   // used for check              0
-0,   // S_RSSIMIN                   1
-150, // S_RSSIMAX                   2
+0,   // S_UNUSED_5                  1
+0, // S_VIDVOLTAGEMIN             2
 60,  // S_RSSI_ALARM                3
 0,   // S_DISPLAYRSSI               4
 0,   // S_MWRSSI                    5
@@ -275,7 +289,7 @@ MWOSDVER,   // used for check              0
 0,   // S_MWAMPERAGE                12a :)
 0,   // S_AMPER_HOUR                13
 0,   // S_AMPERAGE_VIRTUAL,
-150, // S_AMPDIVIDERRATIO,
+150, // S_UNUSED_3,
 0,   // S_VIDVOLTAGE                14
 200, // S_VIDDIVIDERRATIO           15
 0,   // S_VIDVOLTAGE_VBAT           16 
@@ -313,9 +327,9 @@ MWOSDVER,   // used for check              0
 1,   // S_TIMER                     41h
 1,   // S_MODESENSOR                42h
 1,   // S_SIDEBARTOPS               43h
-4,   // S_AMPMIN,
-150,  // S_AMPMAXL,
-0,   // S_AMPMAXH,
+4,   // S_UNUSED_6,
+0,   // S_UNUSED_1, S_AMPMAXL,
+0,   // S_UNUSED_2, S_AMPMAXH,
 0,   // S_RCWSWITCH,
 4,   // S_RCWSWITCH_CH,
 0,   // S_HUDSW0, LOW / NORMAL
@@ -325,19 +339,29 @@ MWOSDVER,   // used for check              0
 100, // S_ALTITUDE_ALARM,
 100, // S_SPEED_ALARM,
 30,  // S_FLYTIME_ALARM
-0,   // S_CS0,
-0,   // S_CS1,
-0,   // S_CS2,
-0,   // S_CS3,
-0,   // S_CS4,
-0,   // S_CS5,
-0,   // S_CS6,
-0,   // S_CS7,
-0,   // S_CS8,
-0,   // S_CS9,
+0x53,   // S_CS0,
+0x48,   // S_CS1,
+0x49,   // S_CS2,
+0x4B,   // S_CS3,
+0x49,   // S_CS4,
+0x20,   // S_CS5,
+0x20,   // S_CS6,
+0x20,   // S_CS7,
+0x20,   // S_CS8,
+0x20,   // S_CS9,
 
 };
 
+uint16_t EEPROM16_DEFAULT[EEPROM16_SETTINGS] = {
+  0,// S16_AMPMAX,
+  0,// S16_AMPZERO,
+  150,// S16_AMPDIVIDERRATIO,
+  0,// S16_RSSIMIN,
+  1024,// S16_RSSIMAX,
+  500,// S16_SPARE1,
+  600,// S16_SPARE2,
+  
+};
 uint16_t SCREENLAYOUT_DEFAULT[EEPROM_SETTINGS] = {
 
 (LINE02+2)|DISPLAY_ALWAYS,  // GPS_numSatPosition
@@ -377,6 +401,7 @@ uint16_t SCREENLAYOUT_DEFAULT[EEPROM_SETTINGS] = {
 (LINE02+22)|DISPLAY_NEVER,   // MapModePosition
 (LINE07+15)|DISPLAY_NEVER,   // MapCenterPosition
 (LINE04+10)|DISPLAY_ALWAYS,   // APstatusPosition
+(LINE12+9)|DISPLAY_NEVER,   // wattPosition
 
 };
 
@@ -420,6 +445,7 @@ uint16_t SCREENLAYOUT_DEFAULT_OSDSW[EEPROM_SETTINGS] = {
 (LINE02+22)|DISPLAY_NEVER,   // MapModePosition
 (LINE07+17)|DISPLAY_NEVER,   // MapCenterPosition
 (LINE04+10)|DISPLAY_NEVER,   // APstatusPosition
+(LINE12+13)|DISPLAY_NEVER,   // wattPosition
 
 };
 
@@ -463,6 +489,7 @@ LINE04+2 |DISPLAY_ALWAYS,   // modePosition
 LINE02+22 |DISPLAY_NEVER,   // MapModePosition
 LINE07+15 |DISPLAY_NEVER,   // MapCenterPosition
 LINE04+10 |DISPLAY_ALWAYS,   // APstatusPosition
+LINE12+9 |DISPLAY_ALWAYS,   // wattPosition
 
 };
 */
@@ -480,7 +507,6 @@ static uint8_t thrExpo8;
 static uint16_t tpa_breakpoint16;
 static uint8_t rcYawExpo8;
 
-static uint16_t  MwAccSmooth[3]={0,0,0};       // Those will hold Accelerator data
 int32_t  MwAltitude=0;                         // This hold barometric value
 int32_t  old_MwAltitude=0;                     // This hold barometric value
 
@@ -522,6 +548,16 @@ uint8_t GPS_waypoint_step=0;
 uint16_t pMeterSum=0;
 uint16_t MwRssi=0;
 uint32_t GPS_time = 0;        //local time of coord calc - haydent
+
+#ifdef HAS_ALARMS
+#define ALARM_OK 0
+#define ALARM_WARN 1
+#define ALARM_ERROR 2
+#define ALARM_CRIT 3
+
+uint8_t alarmState = ALARM_OK;
+uint8_t alarmMsg[MAX_ALARM_LEN];
+#endif
 
 uint8_t MvVBatMinCellVoltage=CELL_VOLTS_MIN;
 uint8_t MvVBatMaxCellVoltage=CELL_VOLTS_MAX;
@@ -569,6 +605,7 @@ int16_t pwmRSSI = 0;
 uint16_t voltage=0;                      // its the value x10
 uint16_t vidvoltage=0;                   // its the value x10
 uint8_t voltageWarning=0;
+uint8_t vidvoltageWarning=0;
 
 // For temprature
 int16_t temperature=0;                  // temperature in degrees Centigrade
@@ -645,6 +682,8 @@ uint16_t flyingTime=0;
 
 #define MSP_BIND                 240   //in message          no param
 
+#define MSP_ALARMS               242   //in message          poll for alert text
+
 #define MSP_EEPROM_WRITE         250   //in message          no param
 
 #define MSP_DEBUGMSG             253   //out message         debug string buffer
@@ -716,7 +755,7 @@ const char messageF2[] PROGMEM = "UPDATE COMPLETE";
 
 //const char message1[] PROGMEM = "VIDEO SIGNAL NTSC";
 //const char message2[] PROGMEM = "VIDEO SIGNAL PAL ";
-const char message5[]  PROGMEM = "FW VERSION:";
+const char message5[]  PROGMEM = "FC VERSION:";
 const char message6[]  PROGMEM = "OPEN MENU: THRT MIDDLE";
 const char message7[]  PROGMEM = "+YAW RIGHT";
 const char message8[]  PROGMEM = "+PITCH FULL";
@@ -847,7 +886,6 @@ const unsigned char GPS_distanceToHomeAdd[2]={
   0xbb,0xb9};
 const unsigned char MwGPSAltPositionAdd[2]={
   0xa7,0xa8};
-const char MWOSDVersionPosition = 34;
 
 
 enum Positions {
@@ -888,6 +926,7 @@ enum Positions {
   MapModePosition,
   MapCenterPosition,
   APstatusPosition,
+  wattPosition,
   POSITIONS_SETTINGS
 };
 
@@ -911,6 +950,7 @@ uint16_t screenPosition[POSITIONS_SETTINGS];
 #define REQ_MSP_NAV_STATUS  32768 //(1 << 15)
 #define REQ_MSP_CONFIG  32768 //(1 << 15)
 #define REQ_MSP_MISC      65536 // (1 << 16)
+#define REQ_MSP_ALARMS    131072 // (1 << 17)
 
 // Menu
 //PROGMEM const char *menu_stats_item[] =

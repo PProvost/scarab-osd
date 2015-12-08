@@ -3,7 +3,7 @@
 /*
 Scarab NG OSD ... 
 
- This program is free software: you can redistribute it and/or modify
+ Subject to exceptions listed below, this program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  any later version. see http://www.gnu.org/licenses/
@@ -19,6 +19,12 @@ This work is based on the following open source work :-
  Jean Gabriel Maurice. He started the revolution. He was the first....
  
  Please refer to credits.txt for list of individual contributions
+ 
+ Exceptions:
+ Where there are exceptions, these take precedence over the genereric licencing approach
+ Elements of the code provided by Pawelsky (DJI specific) are not for commercial use. See headers in individual files for further details.  
+ Libraries used and typically provided by compilers may have licening terms stricter than that of GNU 3
+ 
 */
 
 //------------------------------------------------------------------------
@@ -70,8 +76,8 @@ uint16_t UntouchedStack(void)
 //#endif
 
 //------------------------------------------------------------------------
-#define MWVERS "MW-OSD - R1.5"  
-#define MWOSDVER 9      // for eeprom layout verification      
+#define MWVERS "MW-OSD - R1.6"  
+#define MWOSDVER 11      // for eeprom layout verification    was 9  
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 #include "Config.h"
@@ -95,6 +101,8 @@ uint32_t queuedMSPRequests;
 uint8_t sensorpinarray[]={VOLTAGEPIN,VIDVOLTAGEPIN,AMPERAGEPIN,TEMPPIN,RSSIPIN};  
 unsigned long previous_millis_low=0;
 unsigned long previous_millis_high =0;
+unsigned long previous_millis_sync =0;
+unsigned long previous_millis_rssi =0;
 
 #if defined LOADFONT_DEFAULT || defined LOADFONT_LARGE
 uint8_t fontStatus=0;
@@ -117,13 +125,14 @@ void setup()
   UCSR0A  |= (1<<U2X0); UBRR0H = h; UBRR0L = l; 
 //---
   Serial.flush();
-#if defined (INTPWMRSSI) || defined (PPMOSDCONTROL)
-  initRSSIint();
-#else 
+
   pinMode(PWMRSSIPIN, INPUT);
   pinMode(RSSIPIN, INPUT);
-#endif
   pinMode(LEDPIN,OUTPUT);
+
+#if defined (INTPWMRSSI) || defined (PPMOSDCONTROL)
+  initRSSIint();
+#endif
 
 #if defined EEPROM_CLEAR
   EEPROM_clear();
@@ -132,7 +141,7 @@ void setup()
   readEEPROM();
   
   #ifndef STARTUPDELAY
-    #define STARTUPDELAY 1000
+    #define STARTUPDELAY 500
   #endif
   delay(STARTUPDELAY);
  
@@ -153,7 +162,6 @@ void setup()
     MwSensorPresent |=ACCELEROMETER;
   #endif
   setMspRequests();
-  
 }
 
 //------------------------------------------------------------------------
@@ -184,15 +192,17 @@ void loop()
 }
 #else
 
+// ampAlarming returns true if the total consumed mAh is greater than
+// the configured alarm value (which is stored as 100s of amps)
+static bool ampAlarming() {
+    int used = pMeterSum > 0 ? pMeterSum : (amperagesum / 360);
+    return used > (Settings[S_AMPER_HOUR_ALARM]*100);
+}
+
+
 //------------------------------------------------------------------------
 void loop()
 {
-// stall detect test
-//  if (onTime%10==0){
-//  digitalWrite(MAX7456SELECT,LOW);  
-//  MAX7456_Send(0x00, 0x00);
-//  digitalWrite(MAX7456SELECT,HIGH);
-//}
   if (flags.reset){
     resetFunc();
   }
@@ -225,7 +235,6 @@ void loop()
     else  
       screenlayout=0;
   #endif
-    
   if (screenlayout!=oldscreenlayout){
     readEEPROM_screenlayout();
   }
@@ -240,6 +249,23 @@ void loop()
   //---------------  Start Timed Service Routines  ---------------------------------------
   unsigned long currentMillis = millis();
 
+#ifdef MSP_SPEED_HIGH
+  if((currentMillis - previous_millis_sync) >= sync_speed_cycle)  // (Executed > NTSC/PAL hz 33ms)
+  {
+    previous_millis_sync = previous_millis_sync+sync_speed_cycle;    
+    if(!fontMode)
+      mspWriteRequest(MSP_ATTITUDE,0);
+  }
+#endif //MSP_SPEED_HIGH
+
+#ifdef INTPWMRSSI
+// to prevent issues with high pulse RSSi consuming CPU
+  if((currentMillis - previous_millis_rssi) >= (1000/RSSIhz)){  
+    previous_millis_rssi = currentMillis; 
+    initRSSIint();
+  }   
+#endif // INTPWMRSSI
+
   if((currentMillis - previous_millis_low) >= lo_speed_cycle)  // 10 Hz (Executed every 100ms)
   {
     previous_millis_low = previous_millis_low+lo_speed_cycle;    
@@ -250,14 +276,14 @@ void loop()
     if (Settings[S_AMPER_HOUR]) 
       amperagesum += amperage;
     #ifndef GPSOSD 
-      #ifndef FASTMSP
+      #ifdef MSP_SPEED_MED
         if(!fontMode)
-      #endif //FASTMSP  
-      mspWriteRequest(MSP_ATTITUDE,0);
+          mspWriteRequest(MSP_ATTITUDE,0);
+      #endif //MSP_SPEED_MED  
     #endif //GPSOSD
    }  // End of slow Timed Service Routine (100ms loop)
 
-  if((currentMillis - previous_millis_high) >= hi_speed_cycle)  // 20 Hz (Executed every 50ms)
+  if((currentMillis - previous_millis_high) >= hi_speed_cycle)  // 20 Hz or 100hz in MSP high mode
   {
     previous_millis_high = previous_millis_high+hi_speed_cycle;       
       uint8_t MSPcmdsend=0;
@@ -272,9 +298,6 @@ void loop()
       case REQ_MSP_STATUS:
         MSPcmdsend = MSP_STATUS;
         break;
-      case REQ_MSP_RAW_IMU:
-        MSPcmdsend = MSP_RAW_IMU;
-        break;
       case REQ_MSP_RC:
         MSPcmdsend = MSP_RC;
         break;
@@ -284,9 +307,11 @@ void loop()
       case REQ_MSP_COMP_GPS:
         MSPcmdsend = MSP_COMP_GPS;
         break;
+    #ifdef MSP_SPEED_LOW
       case REQ_MSP_ATTITUDE:
         MSPcmdsend = MSP_ATTITUDE;
         break;
+    #endif //MSP_SPEED_LOW  
       case REQ_MSP_ALTITUDE:
         MSPcmdsend = MSP_ALTITUDE;
         break;
@@ -333,6 +358,11 @@ void loop()
          MSPcmdsend = MSP_CONFIG;
       break;
 #endif
+#ifdef HAS_ALARMS
+      case REQ_MSP_ALARMS:
+          MSPcmdsend = MSP_ALARMS;
+      break;
+#endif
     }
     
     if(!fontMode){
@@ -352,6 +382,13 @@ void loop()
     if( allSec < INTRO_DELAY ){
       displayIntro();
       timer.lastCallSign=onTime-CALLSIGNINTERVAL;
+#ifdef AUTOVOLTWARNING
+      cells = ((voltage-3) / MvVBatMaxCellVoltage) + 1;
+      voltageWarning = cells * MvVBatWarningCellVoltage;
+  #ifdef AUTOVOLTCELLALARM
+      voltageWarning = cells * Settings[S_VOLTAGEMIN];
+  #endif // AUTOVOLTCELLALARM
+#endif //AUTOVOLTWARNING
     }  
     else
     {
@@ -377,18 +414,27 @@ void loop()
         setMspRequests();
 #if defined USE_AIRSPEED_SENSOR
         useairspeed();
-#endif //USE_AIRSPEED_SENSOR          
+#endif //USE_AIRSPEED_SENSOR
         if(MwSensorPresent&ACCELEROMETER)
            displayHorizon(MwAngle[0],MwAngle[1]);
-        if(Settings[S_DISPLAYVOLTAGE]&&((voltage>voltageWarning)||(timer.Blink2hz))) 
+#if defined FORCECROSSHAIR
+        displayForcedCrosshair();
+#endif //FORCECROSSHAIR
+        if(Settings[S_DISPLAYVOLTAGE])
           displayVoltage();
-        if(Settings[S_DISPLAYRSSI]&&((rssi>Settings[S_RSSI_ALARM])||(timer.Blink2hz))) 
+        if (Settings[S_VIDVOLTAGE])
+          displayVidVoltage();
+        if(Settings[S_DISPLAYRSSI]&&((rssi>Settings[S_RSSI_ALARM])||(timer.Blink2hz)))
           displayRSSI();
-        if(Settings[S_AMPERAGE]&&(((amperage/10)<Settings[S_AMPERAGE_ALARM])||(timer.Blink2hz))) 
+        if(Settings[S_AMPERAGE]&&(((amperage/10)<Settings[S_AMPERAGE_ALARM])||(timer.Blink2hz)))
           displayAmperage();
-        if(Settings[S_AMPER_HOUR]&&((((amperagesum)/36000)<Settings[S_AMPER_HOUR_ALARM])||(timer.Blink2hz)))
+        if(Settings[S_AMPER_HOUR] && ((!ampAlarming()) || timer.Blink2hz))
           displaypMeterSum();
         displayTime();
+#if defined DISPLAYWATTS
+        displayWatt();
+#endif //DISPLAYWATTS
+
 #ifdef TEMPSENSOR
         if(((temperature<Settings[TEMPERATUREMAX])||(timer.Blink2hz))) displayTemperature();
 #endif
@@ -445,6 +491,9 @@ void loop()
         if(MwSensorPresent)
           displayCells();
 #endif
+#ifdef HAS_ALARMS
+        displayAlarms();
+#endif
       }
     }
   }  // End of fast Timed Service Routine (50ms loop)
@@ -471,14 +520,9 @@ void loop()
         timer.GPS_active--;
       }      
     #endif // GPSACTIVECHECK 
-    #ifdef MSPACTIVECHECK
-      if (timer.MSP_active==0){
-      }
-      else {
-        timer.MSP_active--;
-      }      
-    #endif // MSPACTIVECHECK 
-
+    if (timer.MSP_active>0){
+      timer.MSP_active--;
+    }  
     if(!armed) {
 //      setMspRequests();
 #ifndef MAPMODENORTH
@@ -606,12 +650,15 @@ void setMspRequests() {
       REQ_MSP_PID|
 #ifdef BASEFLIGHT20150627
       REQ_MSP_CONFIG|
-#endif      
+#endif
 #ifdef DEBUGMW
       REQ_MSP_DEBUG|
 #endif
-#ifdef SPORT      
+#ifdef SPORT
       REQ_MSP_CELLS|
+#endif
+#ifdef HAS_ALARMS
+      REQ_MSP_ALARMS|
 #endif
       REQ_MSP_RC;
   }
@@ -631,10 +678,10 @@ void setMspRequests() {
      #ifdef SPORT      
       REQ_MSP_CELLS|
      #endif
+     #ifdef HAS_ALARMS
+      REQ_MSP_ALARMS|
+     #endif
       REQ_MSP_ATTITUDE;
-    if(MwSensorPresent&MAGNETOMETER){ 
-      modeMSPRequests |= REQ_MSP_RAW_IMU;
-    }
     if(MwSensorPresent&BAROMETER){ 
       modeMSPRequests |= REQ_MSP_ALTITUDE;
     }
@@ -652,7 +699,6 @@ void setMspRequests() {
   }
  
   if(Settings[S_MAINVOLTAGE_VBAT] ||
-    Settings[S_VIDVOLTAGE_VBAT] ||
     Settings[S_MWRSSI]) {
     modeMSPRequests |= REQ_MSP_ANALOG;
     
@@ -681,10 +727,13 @@ void calculateTrip(void)
 
 void writeEEPROM(void) // OSD will only change 8 bit values. GUI changes directly
 {
-  Settings[S_AMPMAXH] = S16_AMPMAX>>8;
-  Settings[S_AMPMAXL] = S16_AMPMAX&0xFF;
   for(uint8_t en=0;en<EEPROM_SETTINGS;en++){
     EEPROM.write(en,Settings[en]);
+  } 
+  for(uint8_t en=0;en<EEPROM16_SETTINGS;en++){
+    uint16_t pos=EEPROM_SETTINGS+(en*2);
+    EEPROM.write(pos,Settings16[en]&0xFF);
+    EEPROM.write(pos+1,Settings16[en]>>8);
   } 
   EEPROM.write(0,MWOSDVER);
 }
@@ -695,25 +744,27 @@ void readEEPROM(void)
   for(uint8_t en=0;en<EEPROM_SETTINGS;en++){
      Settings[en] = EEPROM.read(en);
   }
-  S16_AMPMAX=(Settings[S_AMPMAXH]<<8)+Settings[S_AMPMAXL];
+  for(uint8_t en=0;en<EEPROM16_SETTINGS;en++){
+     uint16_t pos=(en*2)+EEPROM_SETTINGS;
+     Settings16[en] = EEPROM.read(pos);
+     uint16_t xx = EEPROM.read(pos+1);
+     Settings16[en] = Settings16[en]+(xx<<8);
+  }
+
   readEEPROM_screenlayout();
 }
 
 
 void readEEPROM_screenlayout(void)
 {
-  uint16_t EEPROMscreenoffset=EEPROM_SETTINGS+(screenlayout*POSITIONS_SETTINGS*2);
+
+  uint16_t EEPROMscreenoffset=EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(screenlayout*POSITIONS_SETTINGS*2);
   for(uint8_t en=0;en<POSITIONS_SETTINGS;en++){
     uint16_t pos=(en*2)+EEPROMscreenoffset;
     screenPosition[en] = EEPROM.read(pos);
     uint16_t xx=(uint16_t)EEPROM.read(pos+1)<<8;
     screenPosition[en] = screenPosition[en] + xx;
-/*
-  debug[0]=screenlayout;
-  debug[1]=EEPROMscreenoffset;
-  debug[2]=pos;
-  debug[3]=POSITIONS_SETTINGS;
-*/
+
     if(Settings[S_VIDEOSIGNALTYPE]){
       uint16_t x = screenPosition[en]&0x1FF; 
       if (x>LINE06) screenPosition[en] = screenPosition[en] + LINE;
@@ -733,15 +784,19 @@ void checkEEPROM(void)
     for(uint8_t en=0;en<EEPROM_SETTINGS;en++){
       EEPROM.write(en,EEPROM_DEFAULT[en]);
     }
-    for(uint8_t en=0;en<POSITIONS_SETTINGS;en++){
-      EEPROM.write(EEPROM_SETTINGS+(en*2),SCREENLAYOUT_DEFAULT[en]&0xFF);
-      EEPROM.write(EEPROM_SETTINGS+1+(en*2),SCREENLAYOUT_DEFAULT[en]>>8);
-      EEPROM.write(EEPROM_SETTINGS+(POSITIONS_SETTINGS*2)+(en*2),SCREENLAYOUT_DEFAULT_OSDSW[en]&0xFF);
-      EEPROM.write(EEPROM_SETTINGS+(POSITIONS_SETTINGS*2)+1+(en*2),SCREENLAYOUT_DEFAULT_OSDSW[en]>>8);
-      EEPROM.write(EEPROM_SETTINGS+(POSITIONS_SETTINGS*4)+(en*2),SCREENLAYOUT_DEFAULT[en]&0xFF);
-      EEPROM.write(EEPROM_SETTINGS+(POSITIONS_SETTINGS*4)+1+(en*2),SCREENLAYOUT_DEFAULT[en]>>8);
+    for(uint8_t en=0;en<EEPROM16_SETTINGS;en++){
+      uint16_t pos=EEPROM_SETTINGS+(en*2);
+      EEPROM.write(pos,EEPROM16_DEFAULT[en]&0xFF);
+      EEPROM.write(pos+1,EEPROM16_DEFAULT[en]>>8);
     }
-
+    for(uint8_t en=0;en<POSITIONS_SETTINGS;en++){
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(en*2),SCREENLAYOUT_DEFAULT[en]&0xFF);
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+1+(en*2),SCREENLAYOUT_DEFAULT[en]>>8);
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(POSITIONS_SETTINGS*2)+(en*2),SCREENLAYOUT_DEFAULT_OSDSW[en]&0xFF);
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(POSITIONS_SETTINGS*2)+1+(en*2),SCREENLAYOUT_DEFAULT_OSDSW[en]>>8);
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(POSITIONS_SETTINGS*4)+(en*2),SCREENLAYOUT_DEFAULT[en]&0xFF);
+      EEPROM.write(EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(POSITIONS_SETTINGS*4)+1+(en*2),SCREENLAYOUT_DEFAULT[en]>>8);
+    }
 /*
     for(uint8_t osd_switch_pos=0;osd_switch_pos<3;osd_switch_pos++){
       for(uint8_t en=0;en<POSITIONS_SETTINGS;en++){
@@ -795,8 +850,8 @@ void ProcessSensors(void) {
 #if defined RCRSSI
 //        sensortemp = constrain(MwRcData[RCRSSI],1000,2000)>>1;
         sensortemp = MwRcData[RCRSSI]>>1;
-#elif defined FASTPWMRSSI
-        sensortemp = FastpulseIn(PWMRSSIPIN, HIGH,1024);
+// #elif defined FASTPWMRSSI
+//        sensortemp = FastpulseIn(PWMRSSIPIN, HIGH,1024);
 #elif defined INTPWMRSSI
         sensortemp = pwmRSSI>>1;
 #else
@@ -880,26 +935,23 @@ void ProcessSensors(void) {
       voltage=sensorfilter[0][SENSORFILTERSIZE]>>3;
   }
 
-#ifdef AUTOVOLTWARNING
-  uint8_t cells = ((voltage-3) / MvVBatMaxCellVoltage) + 1;
-  voltageWarning = cells * MvVBatWarningCellVoltage;
-#else
+#ifndef AUTOVOLTWARNING
   voltageWarning = Settings[S_VOLTAGEMIN];
-#endif  
-
-  if (!Settings[S_VIDVOLTAGE_VBAT]) {
-    uint16_t vidvoltageRaw = sensorfilter[1][SENSORFILTERSIZE];
+  cells = Settings[S_BATCELLS];
+#endif // AUTOVOLTWARNING  
+  vidvoltageWarning = Settings[S_VIDVOLTAGEMIN];
+  uint16_t vidvoltageRaw = sensorfilter[1][SENSORFILTERSIZE];
     if (!Settings[S_VREFERENCE]){
       vidvoltage = float(vidvoltageRaw) * Settings[S_VIDDIVIDERRATIO] * (DIVIDER1v1);
     }
     else {
       vidvoltage = float(vidvoltageRaw) * Settings[S_VIDDIVIDERRATIO] * (DIVIDER5v);
     }
-  }
 
 //-------------- Temperature
 #ifdef TEMPSENSOR
-    temperature=(sensorfilter[3][SENSORFILTERSIZE])-TEMP_ZERO)*TEMP_CAL/100 
+    temperature=sensorfilter[3][SENSORFILTERSIZE]>>3-TEMPZERO;
+    temperature = map (temperature, TEMPZERO, 1024, 0 , TEMPMAX);
 #endif
 
 //-------------- Current
@@ -907,45 +959,36 @@ void ProcessSensors(void) {
   if(!Settings[S_MWAMPERAGE]) {
     if (!Settings[S_AMPERAGE_VIRTUAL]) { // Analogue
       amperage = sensorfilter[2][SENSORFILTERSIZE]>>3;
-      amperage = map(amperage, Settings[S_AMPMIN]+AMPERAGEOFFSET, S16_AMPMAX, 0, AMPERAGEMAX);
+      amperage = map(amperage, Settings16[S16_AMPZERO], 1024, 0, Settings16[S16_AMPDIVIDERRATIO]);
       if (amperage < 0) amperage=0;
     }  
     else {  // Virtual
       uint32_t Vthrottle = constrain(MwRcData[THROTTLESTICK],1000,2000);
       Vthrottle = constrain((Vthrottle-1000)/10,10,100);
-      amperage = (Vthrottle+(Vthrottle*Vthrottle*0.02))*S16_AMPMAX*0.01;
+      amperage = (Vthrottle+(Vthrottle*Vthrottle*0.02))*Settings16[S16_AMPDIVIDERRATIO]*0.01;
       if(armed)
-        amperage += Settings[S_AMPMIN];
+        amperage += Settings16[S16_AMPZERO];
       else 
-        amperage = Settings[S_AMPMIN];
+        amperage = Settings16[S16_AMPZERO];
     }  
   }
   else{
-#if defined AMPERAGE_100ma
-      amperage = MWAmperage ;
-#elif defined AMPERAGE_10ma
-      amperage = MWAmperage / 10;
-#elif defined AMPERAGE_1ma
-      amperage = MWAmperage / 100;
-#else
-      amperage = MWAmperage / 100;
-#endif
-
+    amperage = MWAmperage / AMPERAGE_DIV;
   }
 
 //-------------- RSSI
   if (Settings[S_DISPLAYRSSI]) {           
-    rssi = sensorfilter[4][SENSORFILTERSIZE]>>5; // filter and move to 8 bit
+    rssi = sensorfilter[4][SENSORFILTERSIZE]>>3; // filter and remain 16 bit
     if (configMode){
       if((timer.rssiTimer==15)) {
-        Settings[S_RSSIMAX]=rssi; // tx on
+        Settings16[S16_RSSIMAX]=rssi; // tx on
       }
       if((timer.rssiTimer==1)) {
-        Settings[S_RSSIMIN]=rssi; // tx off
+        Settings16[S16_RSSIMIN]=rssi; // tx off
         timer.rssiTimer=0;
       }
     }
-    rssi = map(rssi, Settings[S_RSSIMIN], Settings[S_RSSIMAX], 0, 100);
+    rssi = map(rssi, Settings16[S16_RSSIMIN], Settings16[S16_RSSIMAX], 0, 100);
     rssi=constrain(rssi,0,100);
   }
 
@@ -984,7 +1027,7 @@ unsigned long FastpulseIn(uint8_t pin, uint8_t state, unsigned long timeout)
 #if defined INTPWMRSSI
 void initRSSIint() { // enable ONLY RSSI pin A3 for interrupt (bit 3 on port C)
   DDRC &= ~(1 << DDC3);
-  PORTC |= (1 << PORTC3);
+//  PORTC |= (1 << PORTC3);
   cli();
   PCICR =  (1 << PCIE1);
   PCMSK1 = (1 << PCINT11);
@@ -994,6 +1037,7 @@ void initRSSIint() { // enable ONLY RSSI pin A3 for interrupt (bit 3 on port C)
 
 ISR(PCINT1_vect) { //
   static uint16_t PulseStart;  
+  static uint8_t PulseCounter;  
   uint8_t pinstatus;
   pinstatus = PINC;
   sei();
@@ -1001,22 +1045,33 @@ ISR(PCINT1_vect) { //
   uint16_t PulseDuration;
   CurrentTime = micros();
   if (!(pinstatus & (1<<DDC3))) { // RSSI pin A3 - ! measures low duration
-    PulseDuration = CurrentTime-PulseStart; 
-    if ((750<PulseDuration) && (PulseDuration<2250)) {
-      pwmRSSI = PulseDuration; // Val updated
+    if (PulseCounter >1){ // why? - to skip any partial pulse due to toggling of int's
+      PulseDuration = CurrentTime-PulseStart; 
+      PulseCounter=0;
+    #if defined FASTPWMRSSI
+      pwmRSSI = PulseDuration;
+      PCMSK1 =0;
+    #else
+      if ((750<PulseDuration) && (PulseDuration<2250)) {
+        pwmRSSI = PulseDuration;
+        PCMSK1 =0;
+      }
+    #endif 
     }
+    PulseCounter++;
   } 
   else {
     PulseStart = CurrentTime;
   }
+//  sei();   
 }
-#endif
+#endif // INTPWMRSSI
 
 
 #if defined PPMOSDCONTROL
 void initRSSIint() { // enable ONLY RSSI pin A3 for interrupt (bit 3 on port C)
   DDRC &= ~(1 << DDC3);
-  PORTC |= (1 << PORTC3);
+//  PORTC |= (1 << PORTC3);
   cli();
   PCICR =  (1 << PCIE1);
   PCMSK1 = (1 << PCINT11);
@@ -1048,7 +1103,7 @@ ISR(PCINT1_vect) { //
     PulseStart = CurrentTime;
   }
 }
-#endif
+#endif //PPMOSDCONTROL
 
 void EEPROM_clear(){
   for (int i = 0; i < 512; i++)
@@ -1058,11 +1113,14 @@ void EEPROM_clear(){
 
 #if defined USE_AIRSPEED_SENSOR
 void useairspeed(){
-  float airspeed_cal = AIRSPEED_CAL; // move to GUI or config
-  float airspeed_pressure;
-  uint16_t airspeedsensor = max((sensorfilter[3][SENSORTOTAL]-AIRSPEED_ZERO), 0);
-  float airspeedraw    = sqrt(airspeedsensor * airspeed_cal);
-  static float airspeed       = 27.7777 *( 8.0f * airspeed  +  2.0f * airspeedraw); //averaging filter. In cm/s *10
-  GPS_speed = (int16_t) airspeed;
+  float airspeed_cal = AIRSPEED_CAL; //AIRSPEED_CAL; // move to GUI or config
+  uint16_t airspeedsensor = sensorfilter[3][SENSORFILTERSIZE]>>3;
+  if (airspeedsensor>(AIRSPEED_ZERO)){
+    airspeedsensor = airspeedsensor-AIRSPEED_ZERO;
+  }
+  else {
+    airspeedsensor = 0;
+  }
+  GPS_speed = 27.7777 * sqrt(airspeedsensor * airspeed_cal); // Need in cm/s for this
 }
 #endif //USE_AIRSPEED_SENSOR 

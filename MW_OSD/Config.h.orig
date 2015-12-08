@@ -35,8 +35,12 @@
 // latest release...
 //#define MULTIWII                  // Uncomment this if you are using latest MULTIWII version from repository (2.4 at time of this MWOSD release)
 //#define BASEFLIGHT                // Uncomment this if you are using latest BASEFLIGHT version from repository (Stable 2015.06.27 at time of this MWOSD release)
-//#define TAULABS                   // Uncomment this if you are using the latest Tau Labs MSP Module
+<<<<<<< HEAD
 #define CLEANFLIGHT               // Uncomment this if you are using latest CLEANFLIGHT version from repository (1.9.0 at time or this MWOSD release)
+=======
+//#define TAULABS                   // Uncomment this if you are using the latest Tau Labs MSP Module
+//#define CLEANFLIGHT               // Uncomment this if you are using latest CLEANFLIGHT version from repository (1.9.0 at time or this MWOSD release)
+>>>>>>> ed20c4736cff3afb32d56261b704dbf79de4ee77
 //#define HARIKIRI                  // Uncomment this if you are using HARIKIRI (for BOXNAMES compatibility)
 //#define NAZA                      // Uncomment this if you are using NAZA flight controller
 //#define GPSOSD_UBLOX              // Uncomment this if you are using a UBLOX GPS module for a GPS based OSD
@@ -58,18 +62,21 @@
 //#define FIXEDWING                 // Uncomment this if you are using fixed wing MultiWii or Baseflight 
 
 
+<<<<<<< HEAD
 /********************       HARDWARE CURRENT sensor settings      *********************/
 #define AMPERAGEMAX     900         // Size of current sensor / maximum current draw (* 10) e.g. 50A sensor = 500, 100A sensor = 1000
 #define AMPERAGEOFFSET  0           // Optional extra for high offset sensors not supported in GUI (typically bidirectional sensors use a value of 256-512) 
 
 
+=======
+>>>>>>> ed20c4736cff3afb32d56261b704dbf79de4ee77
 /********************       OSD SCREEN SWITCH settings      *********************/
 // This functionality enables :
 // a, 2 different screen layouts to be selected using the Flight controller "OSD_SWITCH" feature or
 // b, 2 or 3 different screen layouts to be selected using a specificed RC channel assigned to a TX switch
 //Choose ONLY ONE option:
-//#define OSD_SWITCH_RC               // Enables 3 way screen switch using a TX channel via FC. Specify channel on GUI (range 0-7 AUX1=4 AUX4=7)
-#define OSD_SWITCH                // Forces original 2 way screen switch using OSD Switch via Flight Controller. MUST Ensure enabled on flight controller - e.g. #define OSD_SWITCH on multiwii
+#define OSD_SWITCH_RC               // Enables 3 way screen switch using a TX channel via FC. Specify channel on GUI (range 0-7 AUX1=4 AUX4=7)
+//#define OSD_SWITCH                // Forces original 2 way screen switch using OSD Switch via Flight Controller. MUST Ensure enabled on flight controller - e.g. #define OSD_SWITCH on multiwii
 //#define OSD_SWITCH_RSSI           // Enables 3 way screen switch using a TX channel via a RX channel connected to the OSD RSSI pin. Typically used for GPSOSD.
 
 
@@ -218,13 +225,26 @@
 
 
 /********************       Voltage Warning Settings         ************************/
-#define AUTOVOLTWARNING           // Uncomment this to use automatic voltage warning. Overrides GUI/OSD voltage warrning setting. Usefull if using different cell count batteries.
-#define FC_VOLTAGE_CONFIG         // Additionally uncomment this if you want to use the vbat voltage config with BASEFLIGHT and CLEANFLIGHT on the flight controller (include: min cell voltage, max cell voltage and warning cell voltage)
+//#define AUTOVOLTWARNING           // Uncomment this to use automatic voltage warning. Overrides GUI/OSD voltage warrning setting. Usefull if using different cell count batteries.
+//#define FC_VOLTAGE_CONFIG         // Additionally uncomment this if you want to use the vbat voltage config with BASEFLIGHT and CLEANFLIGHT on the flight controller (include: min cell voltage, max cell voltage and warning cell voltage)
 //#define AUTOVOLTCELLALARM         // Overide Main battery Alarm value. Use individual cell value instead of default of total. i.e. 3.4 = 10.2v on a 3s
 //The following variables are available for adjustment unless using FC_VOLTAGE_CONFIG 
+<<<<<<< HEAD
 #define CELL_VOLTS_WARN 37            // Specify the cell voltage level at which low voltage warning takes place eg. 35 = 3.5 volts per cell
 #define CELL_VOLTS_MIN 35             // Specify the cell voltage at which it is considered empty
 #define CELL_VOLTS_MAX 42             // Specify the max normal LIPO cell voltage
+=======
+#define CELL_VOLTS_WARN 35          // Specify the cell voltage level at which low voltage warning takes place eg. 35 = 3.5 volts per cell
+#define CELL_VOLTS_MIN 34           // Specify the cell voltage at which it is considered empty
+#define CELL_VOLTS_MAX 42           // Specify the max normal LIPO cell voltage
+
+
+/********************       Battery Status Settings         ************************/
+// This works in conjunction with the GUI switch "Display Battery Status
+// Enable to use a battery icon that indicates capacity remaining dependant upon battery voltage or mAh used. Or both if required.
+#define BATTERYICONVOLTS          //Enable to use with voltage as indicator of capacity remaining
+//#define BATTERYICONAMPS           //Enable to use with mAh used percentage of AMPHR alarm limit. Warning will now be at 80% of that GUI value
+>>>>>>> ed20c4736cff3afb32d56261b704dbf79de4ee77
 
 
 /********************       FrSky S.Port settings      *********************/

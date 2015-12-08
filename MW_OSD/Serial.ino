@@ -1,6 +1,8 @@
  
 #if defined NAZA
   #define SERIALBUFFERSIZE 75
+#elif defined GPSOSD
+  #define SERIALBUFFERSIZE 100
 #else
   #define SERIALBUFFERSIZE 150
 #endif
@@ -60,7 +62,7 @@ void serialMSPCheck()
 {
   readIndex = 0;
   #ifdef MSPACTIVECHECK
-    timer.MSP_active=MSPACTIVECHECK;
+    timer.MSP_active=MSPACTIVECHECK; // getting something on serial port
   #endif
 
   if (cmdMSP == MSP_OSD) {
@@ -83,8 +85,10 @@ void serialMSPCheck()
         settingsMode=1;
         MSP_OSD_timer=3000+millis();
         EEPROM.write(eeaddress,eedata);
-        if ((eeaddress==EEPROM_SETTINGS)||(eeaddress==EEPROM_SETTINGS+(3*2*POSITIONS_SETTINGS))){
+//        if (eeaddress==0){
           EEPROM.write(0,MWOSDVER);
+//        }
+        if ((eeaddress==EEPROM_SETTINGS+(EEPROM16_SETTINGS*2))||(eeaddress==EEPROM_SETTINGS+(EEPROM16_SETTINGS*2)+(3*2*POSITIONS_SETTINGS))){
           readEEPROM();
         }
       }
@@ -125,7 +129,7 @@ void serialMSPCheck()
     }
     if(cmd == OSD_DEFAULT) {
       EEPROM_clear(); 
-//      checkEEPROM();
+      checkEEPROM();
       flags.reset=1;
     }
     if(cmd == OSD_RESET) {
@@ -152,12 +156,6 @@ void serialMSPCheck()
     #endif  
     armed = (MwSensorActive & mode.armed) != 0;
 
-  }
-
-  if (cmdMSP==MSP_RAW_IMU)
-  {
-    for(uint8_t i=0;i<3;i++)
-      MwAccSmooth[i] = read16();
   }
 
   if (cmdMSP==MSP_RC)
@@ -355,6 +353,17 @@ void serialMSPCheck()
 
   }
 
+#ifdef HAS_ALARMS
+  if (cmdMSP == MSP_ALARMS)
+  {
+      alarmState = read8();
+      alarmMsg[min(dataSize-1, MAX_ALARM_LEN-1)] = 0;
+      for(uint8_t i = 0; i < dataSize-1; i++) {
+          alarmMsg[min(i, MAX_ALARM_LEN-1)] = read8();
+      }
+  }
+#endif /* HAS_ALARMS */
+
 #ifdef BOXNAMES
   if(cmdMSP==MSP_BOXNAMES) {
     flags.box=1;
@@ -525,13 +534,21 @@ void handleRawRC() {
 	waitStick = 2;
 	configExit();
       }
+#ifdef MODE1
+      if(configMode&&(MwRcData[YAWSTICK]>MAXSTICK)) // MOVE RIGHT
+#else
       if(configMode&&(MwRcData[ROLLSTICK]>MAXSTICK)) // MOVE RIGHT
+#endif
       {
 	waitStick = 1;
 	COL++;
 	if(COL>3) COL=3;
       }
+#ifdef MODE1
+      else if(configMode&&(MwRcData[YAWSTICK]<MINSTICK)) // MOVE LEFT
+#else
       else if(configMode&&(MwRcData[ROLLSTICK]<MINSTICK)) // MOVE LEFT
+#endif
       {
 	waitStick = 1;
 	COL--;
@@ -554,13 +571,21 @@ void handleRawRC() {
 	if(ROW>10)
 	  ROW=10;
       }
+#ifdef MODE1
+      else if(!previousarmedstatus&&configMode&&(MwRcData[ROLLSTICK]<MINSTICK)) // DECREASE
+#else
       else if(!previousarmedstatus&&configMode&&(MwRcData[YAWSTICK]<MINSTICK)) // DECREASE
+#endif
       {
 	waitStick = 1;
         menudir=-1+oldmenudir;
         serialMenuCommon();  
       }
+#ifdef MODE1
+      else if(!previousarmedstatus&&configMode&&(MwRcData[ROLLSTICK]>MAXSTICK)) // INCREASE
+#else
       else if(!previousarmedstatus&&configMode&&(MwRcData[YAWSTICK]>MAXSTICK)) // INCREASE
+#endif
       { 
 	waitStick =1;
         menudir=1+oldmenudir;
@@ -658,8 +683,8 @@ void serialMenuCommon()
 	  if(ROW==2) timer.rssiTimer=15; // 15 secs to turn off tx anwait to read min RSSI
 	  if(ROW==3) Settings[S_MWRSSI]=!Settings[S_MWRSSI];
 	  if(ROW==4) Settings[S_PWMRSSI]=!Settings[S_PWMRSSI];
-	  if(ROW==5) Settings[S_RSSIMAX]=Settings[S_RSSIMAX]+menudir;
-	  if(ROW==6) Settings[S_RSSIMIN]=Settings[S_RSSIMIN]+menudir;
+	  if(ROW==5) Settings16[S16_RSSIMAX]=Settings16[S16_RSSIMAX]+menudir;
+	  if(ROW==6) Settings16[S16_RSSIMIN]=Settings16[S16_RSSIMIN]+menudir;
 	}
 #endif
 #ifdef PAGE5
@@ -667,8 +692,8 @@ void serialMenuCommon()
 	  if(ROW==1) Settings[S_AMPERAGE]=!Settings[S_AMPERAGE];
 	  if(ROW==2) Settings[S_AMPER_HOUR]=!Settings[S_AMPER_HOUR];
 	  if(ROW==3) Settings[S_AMPERAGE_VIRTUAL]=!Settings[S_AMPERAGE_VIRTUAL];
-	  if(ROW==4) S16_AMPMAX=S16_AMPMAX+menudir;
-	  if(ROW==5) Settings[S_AMPMIN]=Settings[S_AMPMIN]+menudir;
+	  if(ROW==4) Settings[S16_AMPDIVIDERRATIO]=Settings[S16_AMPDIVIDERRATIO]+menudir;
+	  if(ROW==5) Settings16[S16_AMPZERO]=Settings16[S16_AMPZERO]+menudir;
 	}
 #endif
 #ifdef PAGE6

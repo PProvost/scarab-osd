@@ -361,7 +361,7 @@ SGPS_altitude = ScontrolP5.addNumberbox("SGPS_altitude",0,5,40,40,14);
     //SGPS_numSat.setColorBackground(red_);
     SGPS_distanceToHome.setMin(0);
     SGPS_distanceToHome.setDirection(Controller.HORIZONTAL);
-    SGPS_distanceToHome.setMax(1000);
+    SGPS_distanceToHome.setMax(20000);
     SGPS_distanceToHome.setDecimalPrecision(0);
     SGPS_distanceToHome.setGroup(SGGPS); 
     SGPS_distanceToHome.setValue(350);
@@ -814,6 +814,17 @@ void ShowAmperage(){
   mapchar(0xa4, SimPosn[pMeterSumPosition]);
   makeText("1221", SimPosn[pMeterSumPosition]+1);
 }}
+
+
+void ShowWattage(){
+  int SYM_WATT = 0X57;
+  int wattage = 125;
+//  String output = OnePlaceDecimal.format(wattage);
+  String output = str(wattage);
+  output =output+char(0X57);
+  makeText(output, SimPosn[wattPosition]+1);   
+
+}
 
 void ShowTemp(){
   makeText("30", SimPosn[temperaturePosition]);

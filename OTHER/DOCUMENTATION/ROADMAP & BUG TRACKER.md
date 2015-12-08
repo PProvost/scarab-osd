@@ -1,61 +1,64 @@
 ---
 
-## Known bugs: ##
-
-HARIKIRI / MW2.1 not working (R1.5)- resolution available from master repository
-
-Center crosshair font partially missing on default_large font - resolution available from master repository
+## Outstanding bugs: ##
 
 ---
 
-## Enhancements planned for next  release: ##
+## Bugfixes / Enhancements completed for next  release: ##
 
-Done - video volts alarm
+ * OSD    - Support for TUALABS - thanks to Dustin
+ * OSD    - Support for NAZA
+ * OSD    - Video volts alarm adjustable via GUI
+ * OSD    - Video volts independant of main battery
+ * OSD    - Battery voltage status icon improved accuracy - thanks to Hwurzburg
+ * OSD    - Battery capacity status icon added - thanks to Hwurzburg
+ * OSD    - Display analogue / PWM sensors on GUI - via MW OSD protocol
+ * OSD    - Support for PWMRSSI via RC data (Flight Controller types)
+ * OSD    - Support for PWMRSSI via PPM stream (GPS OSD) - PENDING TESTING
+ * OSD    - Support for PPM menu control via PPM for GSOSD - PENDING TESTING
+ * OSD    - Enabled filtering and calibration for RSSI data from Flight Controller
+ * OSD    - Enabled filtering and calibration for Main battery voltage from Flight Controller
+ * OSD    - Support for Air speed sensor
+ * OSD    - Added autodetect cell count option 
+ * OSD    - Added autoset battery warning based upon cell count (for those who swap batteries) 
+ * OSD    - Added long distance display for fixed wing - e.g. 15.3km instead of 1530m 
+ * OSD    - Added Faster support options for VSYNC rate of 25/30 hz
+ * OSD    - Added support for forced crosshair for boards without accelerometer
+ * OSD    - Added support for Mode 1 TX users
+ * OSD    - Watts display added. Available via layouts editor
+ * OSD    - RSSI sensitivity via OSD inputs quadrupled. Inreased resolution for some RX. e.g. Scherrer
+ * OSD    - Support for consumed current form flight controller
+ * OSD    - Support for temperature sensor re-introduced
+ * GUI    - Support for RSSI Auto calibration from GUI
+ * GUI    - Support for Current sensor calibration from GUI - using hardware parameters (Offset and gain) 
+ * BUGFIX - HARIKIRI / MW2.1 not working since R1.5
+ * BUGFIX - Center crosshair font partially missing on default_large font
+ * BUGFIX - AHI incroect at large angles
+ * BUGFIX - Analogue ports had RSSI pulled high - impacting range and accuracy of values 
+ * COMPAT - Compatability support for latest cleanflight - conflict with MultiWii
+ * FONT   - improved large font from Schnupperm enhanced by Leo
 
-Done - Display anal / PWM sensors on GUI - via MW OSD protocol
+---
 
-Done - Support for PWMRSSI via RC data (Flight Controller types) or PPM stream (GPS OSD) - PENDING TESTING
+## Bugfixes / Enhancements planned for next  release: ##
 
-Done - GPSOSD - PPM support - PENDING TESTING
-
-Done - enable Filtering and calibration for MSP sensor data (RSSI)
-
-Done - enable Filtering for MSP sensor data (Main battery via FC)
-
-Done - Air speed sensor. - PENDING TESTING
-
-Done - autodetect cell count option 
-
-Done - autoset battery warning based upon cell count (for those who swap batteries) 
-
-Done - long distance display for fixed wing - e.g. 15.3km instaed of 1530m 
-
-Temperature sensor improvements
-
-Improved hardware current sensor handling - carried forward, however bugfix implemented for MW2.4
-
-Power consumtion W/Hr 
-
-Fast start - Autodetect MAX ready or timeout
-
-RSSI calibration from GUI
-
+---
 
 ## Enhancement requests for future releases: ##
 
 Migrate controller/aircraft choice to GUI
 
+Power consumtion W/Hr and W/Km 
+
 Support for APM
 
 Support for OP
 
+Support for BetaFlight
+
 Additional AHI layouts - multiple pitch angles
 
-Migrate Current Sensor to GUI / potentially migrate to offset / mv/A calc 
-
 Config.h option to enable / disable dist/al/volt alarms etc.
-
-Improved fastpwm and rssi calibration
 
 Fresnel warning indicator
 
@@ -79,15 +82,7 @@ Climb rate alarm
 
 Descriptive chracter font for for heading / angle to home
 
-
-Other changes
-
 Impelement more descriptive "help" text within confih.h
-
-
-## GUI: ##
-
-BATTERY calibration button
 
 Migrate GUI to chrome
 
@@ -99,7 +94,16 @@ Improved heading / pitch& roll graphics
 
 Ability to drag/drop items to layout editor
 
-List to enable/disable items on display instea dof clicking to find item
+List to enable/disable items on display instead of clicking to find item
+
+Move AHI/crosshair with camera gimbal RC ch
+
+Display GPS max instead of BARO max at end of flight summary
+
+Use aernotautical units - knots - speed, nautical miles - distance, feet - altitude
+
+Fast start - Autodetect MAX ready or timeout
+
 
 
 Code quality:

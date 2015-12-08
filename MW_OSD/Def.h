@@ -50,42 +50,55 @@
   #define BOXNAMES                  // required to support legacy protocol
 #endif
 
-#if defined (BASEFLIGHT20150327)            
-  #define AMPERAGE_10ma
+// The unit of current varies across implementations.  There are effectively three set:
+// * 100mA, for which case the value is usable as it comes aross the wire.
+// * 10mA, which sends a value 10x higher than we work wth
+// * 1ma, which sends a value 100x higher than normal
+#define AMPERAGE_DIV 100
+
+#if defined (BASEFLIGHT20150327)
+  #define AMPERAGE_DIV 10
 #endif
 
 #if defined (BASEFLIGHT20150627)
-  #define AMPERAGE_10ma
+  #define AMPERAGE_DIV 10
   #define SETCONFIG 25                  //for BASEFLIGHT20150627 to use MSP_SET_CONFIG
 #endif
 
-#if defined (CLEANFLIGHT190)         
-  #define AMPERAGE_10ma
+#if defined (CLEANFLIGHT190)
+  #define AMPERAGE_DIV 10
 #endif
 
 #if defined (CLEANFLIGHT180)
-  #define AMPERAGE_10ma
+  #define AMPERAGE_DIV 10
 #endif
 
 #if defined (CLEANFLIGHT172)
-  #define AMPERAGE_10ma
+  #define AMPERAGE_DIV 10
 #endif
 
-#if defined (MULTIWII_V24)                
-  #define AMPERAGE_100ma
+#if defined (MULTIWII_V24)
+  #define AMPERAGE_DIV 1
 #endif
 
-#if defined (MULTIWII_V23)                
-  #define AMPERAGE_1ma
+#if defined (MULTIWII_V23)
 #endif
 
-#if defined (MULTIWII_V21)                
-  #define AMPERAGE_1ma         
+#if defined (MULTIWII_V21)
   #define BOXNAMES                  // required to support legacy protocol
 #endif
 
 #if defined (FC_VOLTAGE_CONFIG) && (defined (CLEANFLIGHT) || defined(BASEFLIGHT))
   #define USE_FC_VOLTS_CONFIG
+#endif
+
+#if defined(TAULABS)
+  #define AMPERAGE_DIV 10
+  #define HAS_ALARMS
+#endif
+
+#ifdef HAS_ALARMS
+  #define MAX_ALARM_LEN 30
 #endif
 
 /********************   ENABLE/DISABLE CONFIG PAGES via STICK MENU     *********************/
@@ -103,7 +116,7 @@
 
 /********************  HARDWARE PINS definitions  *********************/
 #define AMPERAGEPIN   A1
-#define TEMPPIN       A6           
+#define TEMPPIN       A3  // also used for airspeed         
 #define RSSIPIN       A3              
 #define PWMRSSIPIN    A3              
 #define LEDPIN        7
@@ -224,13 +237,11 @@
 /********************  MSP enhancements rule definitions  *********************/
 
 #if defined MSP_SPEED_HIGH
-  #define hi_speed_cycle  5
+  #define hi_speed_cycle  10  // updates everything approx 6.3 times per second, updates attitude 30 times per second
 #elif defined MSP_SPEED_MED
-  #define hi_speed_cycle  15
-#elif defined MSP_SPEED_MED
-  #define hi_speed_cycle  50
+  #define hi_speed_cycle  50  // same as low, but also updates attitude 10 times per second
 #else
-  #define hi_speed_cycle  50
+  #define hi_speed_cycle  50  // updates everything approx 1.3 times per second
 #endif
 
 
@@ -263,4 +274,11 @@
   #define YAWSTICK         2
   #define THROTTLESTICK    3
 #endif
- 
+
+/********************  RSSI  *********************/
+#if defined FASTPWMRSSI
+  #define INTPWMRSSI
+#endif  
+
+/********************  other paramters  *********************/
+#define RSSIhz           10 

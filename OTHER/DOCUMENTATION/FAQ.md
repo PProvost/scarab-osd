@@ -11,6 +11,7 @@
   * Ensure you do not have blank screen layout selected
   * If using 3 way switch try different position
   * If using FRSKY or other high frequency RSSI, unplug until resolved.
+  * Some stups require a consistent ground between camera and OSD video output
 
 ---
 
@@ -167,6 +168,25 @@ HARAKIRI USERS - ensure protocol set as follows:
 ---
 23 How do I configure for standalone GPS OSD (no controller)
   * https://github.com/ShikOfTheRa/scarab-osd/blob/master/OTHER/DOCUMENTATION/Guide_standalone_GPS_OSD.md
+
+---
+23 GUI will not launch
+  * Try both 32 and 64 bit versions
+  * Check other GUI FAQ points (therere a re several)
+  * Completely uninstall all Java versions and re-install latest. Note you will have to google to find instructions to completely remove. As part of this, make sure path variables are completely erased before re-installing.
+
+---
+24 How do I use RSSI with FRSKY (D4R-II)
+  * Use an LC filter like CASE 2 here : https://code.google.com/p/minoposd/wiki/AnalogRSSI
+  * Connect directly to NAZE like this : https://github.com/cleanflight/cleanflight/blob/master/docs/Rssi.md
+  * Try FASTPWMRSSI option in config.h
+  * For Taranis users there is this option: http://blog.oscarliang.net/rssi-ppm-channel-taranis/
+  * For 9x/9xr OpenTX users there is this option: http://fpvlab.com/forums/showthread.php?34250-MWOSD-for-MULTIWII-NAZE32-BASEFLIGHT-HARIKIRI&p=741209&viewfull=1#post741209
+
+---
+25 Display keeps blinking. May be worse at high throttle
+  * This is noise on the power to the OSD. It need sto be sorted
+  * Google LC power filter for FPV
 
 ---
 
